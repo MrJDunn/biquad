@@ -18,6 +18,33 @@
 class BiquadAudioProcessor  : public AudioProcessor
 {
 public:
+    enum FilterType
+    {
+        FirstOrderLPF = 0,
+        FirstOrderHPF,
+        SecondOrderLPF,
+        SecodOrderHPF,
+        SecondOrderBPF,
+        SecondOrderBSF,
+        SecondOrderButterworthLPF,
+        SecondOrderButterworthHPF,
+        SecondOrderButterworthBPF,
+        SecondOrderButterworthBSF,
+        SecondOrderLinkwitzRileyLPF,
+        SecondOrderLinkwitzRileyHPF,
+        FirstOrderAPF,
+        SecondOrderAPF,
+        FirstOrderHighShelf,
+        FirstOrderLowShelf,
+        SecondOrderParametricNonConstQ,
+        SecondOrderParametricConstQ,
+        FirstOrderAllPole,
+        SecondOrderAllPole,
+        SecondOrderVAMMLPF,
+        SecondOrderVAMMBPF,
+        FirstOrderIILPF,
+        SecondOrderIILPF,
+    };
     //==============================================================================
     BiquadAudioProcessor();
     ~BiquadAudioProcessor();
@@ -60,7 +87,7 @@ private:
     float a0, a1, a2, b0, b1, b2, c0, d0;
     float *x1 = nullptr, *x2 = nullptr, *y1 = nullptr, *y2 = nullptr;
 
-    void calculateCoefficients(float frequency);
+    void calculateCoefficients(float frequency, float q, FilterType filtertype);
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BiquadAudioProcessor)
