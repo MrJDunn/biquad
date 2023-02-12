@@ -95,14 +95,29 @@ void BiquadAudioProcessor::changeProgramName (int index, const String& newName)
 //==============================================================================
 void BiquadAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    int numchannels = getNumInputChannels();
+    int nsize = numchannels * sizeof(float);
+    samplerate = sampleRate;
+
+	x1 = (float *)malloc(nsize);
+	x2 = (float *)malloc(nsize);
+	y1 = (float *)malloc(nsize);
+	y2 = (float *)malloc(nsize);
+
+    for (int i = 0; i < numchannels; ++i)
+    {
+        x1[i] = x2[i] = y1[i] = y2[i] = 0;
+    }
+
+    calculateCoefficients(100.f);
 }
 
 void BiquadAudioProcessor::releaseResources()
 {
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
+    free(x1);
+    free(x2);
+    free(y1);
+    free(y2);
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -135,26 +150,22 @@ void BiquadAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer&
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
-
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        auto* channelData = buffer.getWritePointer (channel);
+        auto* in = buffer.getReadPointer (channel);
+        auto* out = buffer.getWritePointer (channel);
 
-        // ..do something to the data...
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            float x0 = in[sample];
+            float y0 = (x0 * d0) + c0 * (a1 * x1[channel] + a2 * x2[channel] - b1 * y1[channel] - b2 * y2[channel]);
+            out[sample] = y0;
+
+            x2[channel] = x1[channel];
+            x1[channel] = x0;
+            y2[channel] = y1[channel];
+            y1[channel] = y0;
+        }
     }
 }
 
@@ -183,6 +194,19 @@ void BiquadAudioProcessor::setStateInformation (const void* data, int sizeInByte
     // whose contents will have been created by the getStateInformation() call.
 }
 
+void BiquadAudioProcessor::calculateCoefficients(float frequency)
+{
+    // 1st Order LPF
+    float theta = juce::MathConstants<float>::twoPi * frequency / samplerate;
+    float gamma = cos(theta) / (1.f + sin(theta));
+    a0 = (1.f - gamma) / 2.f;
+    a1 = a0;
+    a2 = 0.f;
+    b1 = -gamma;
+    b2 = 0.f;
+    c0 = 1.f;
+    d0 = 0.f;
+}
 //==============================================================================
 // This creates new instances of the plugin..
 AudioProcessor* JUCE_CALLTYPE createPluginFilter()

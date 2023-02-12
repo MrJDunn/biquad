@@ -56,8 +56,11 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
 private:
+    float samplerate;
     float a0, a1, a2, b0, b1, b2, c0, d0;
-    float n0, n1;
+    float *x1 = nullptr, *x2 = nullptr, *y1 = nullptr, *y2 = nullptr;
+
+    void calculateCoefficients(float frequency);
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BiquadAudioProcessor)
