@@ -87,7 +87,9 @@ private:
     float a0, a1, a2, b0, b1, b2, c0, d0;
     float *x1 = nullptr, *x2 = nullptr, *y1 = nullptr, *y2 = nullptr;
 
-    void calculateCoefficients(float frequency, float q, FilterType filtertype);
+    void calculateCoefficients(float frequency, float q, float gain, FilterType filtertype);
+    float linearToDecibels(const float &linearValue);
+    float decibelsToLinear(const float &decibelValue);
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BiquadAudioProcessor)
