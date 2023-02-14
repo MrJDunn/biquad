@@ -86,6 +86,8 @@ private:
     float samplerate;
     float a0, a1, a2, b0, b1, b2, c0, d0;
     float *x1 = nullptr, *x2 = nullptr, *y1 = nullptr, *y2 = nullptr;
+    juce::AudioParameterFloat *frequency, *q, *gain;
+    juce::AudioParameterChoice *filterType;
 
     void calculateCoefficients(float frequency, float q, float gain, FilterType filtertype);
     float linearToDecibels(const float &linearValue);

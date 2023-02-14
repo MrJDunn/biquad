@@ -16,7 +16,7 @@
 //==============================================================================
 /**
 */
-class BiquadAudioProcessorEditor  : public AudioProcessorEditor
+class BiquadAudioProcessorEditor  : public GenericAudioProcessorEditor// public AudioProcessorEditor
 {
 public:
     BiquadAudioProcessorEditor (BiquadAudioProcessor&);

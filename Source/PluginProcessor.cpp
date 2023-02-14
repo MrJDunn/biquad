@@ -24,6 +24,37 @@ BiquadAudioProcessor::BiquadAudioProcessor()
                        )
 #endif
 {
+    juce::AudioParameterFloat *frequency, *q, *gain;
+    juce::AudioParameterChoice *filterType;
+	addParameter(frequency = new juce::AudioParameterFloat("frequency", "F", juce::NormalisableRange<float>(0.f, 20000.f), 10000.f));
+	addParameter(q = new juce::AudioParameterFloat("q", "Q", juce::NormalisableRange<float>(0.01f, 10.f), 0.5f));
+	addParameter(gain = new juce::AudioParameterFloat("gain", "G", juce::NormalisableRange<float>(-10.f, 10.f), 1.f));
+	addParameter(filterType = new juce::AudioParameterChoice("filterType", "T", StringArray{
+        "FirstOrderLPF",
+        "FirstOrderHPF",
+        "SecondOrderLPF",
+        "SecodOrderHPF",
+        "SecondOrderBPF",
+        "SecondOrderBSF",
+        "SecondOrderButterworthLPF",
+        "SecondOrderButterworthHPF",
+        "SecondOrderButterworthBPF",
+        "SecondOrderButterworthBSF",
+        "SecondOrderLinkwitzRileyLPF",
+        "SecondOrderLinkwitzRileyHPF",
+        "FirstOrderAPF",
+        "SecondOrderAPF",
+        "FirstOrderHighShelf",
+        "FirstOrderLowShelf",
+        "SecondOrderParametricNonConstQ",
+        "SecondOrderParametricConstQ",
+        "FirstOrderAllPole",
+        "SecondOrderAllPole",
+        "SecondOrderVAMMLPF",
+        "SecondOrderVAMMBPF",
+        "FirstOrderIILPF",
+        "SecondOrderIILPF",
+		}, 0));
 }
 
 BiquadAudioProcessor::~BiquadAudioProcessor()
@@ -146,6 +177,7 @@ bool BiquadAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
 
 void BiquadAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
 {
+    //calculateCoefficients(*frequency, *q, *gain, FilterType(filterType->getIndex()));
     ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
