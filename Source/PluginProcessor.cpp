@@ -24,8 +24,6 @@ BiquadAudioProcessor::BiquadAudioProcessor()
                        )
 #endif
 {
-    juce::AudioParameterFloat *frequency, *q, *gain;
-    juce::AudioParameterChoice *filterType;
 	addParameter(frequency = new juce::AudioParameterFloat("frequency", "F", juce::NormalisableRange<float>(0.f, 20000.f), 10000.f));
 	addParameter(q = new juce::AudioParameterFloat("q", "Q", juce::NormalisableRange<float>(0.01f, 10.f), 0.5f));
 	addParameter(gain = new juce::AudioParameterFloat("gain", "G", juce::NormalisableRange<float>(-10.f, 10.f), 1.f));
@@ -55,6 +53,9 @@ BiquadAudioProcessor::BiquadAudioProcessor()
         "FirstOrderIILPF",
         "SecondOrderIILPF",
 		}, 0));
+    
+	mFrequency = mQ = mGain = 0.f;
+    FilterType mFilterType = FirstOrderLPF;
 }
 
 BiquadAudioProcessor::~BiquadAudioProcessor()
@@ -140,7 +141,12 @@ void BiquadAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
         x1[i] = x2[i] = y1[i] = y2[i] = 0;
     }
 
-    calculateCoefficients(1000.f, 0.f, 1.f, FilterType::FirstOrderLPF);
+	*frequency = mFrequency;
+	*q = mQ;
+	*gain = mGain;
+	*filterType = mFilterType;
+
+	calculateCoefficients(mFrequency, mQ, mGain, mFilterType);
 }
 
 void BiquadAudioProcessor::releaseResources()
@@ -175,9 +181,21 @@ bool BiquadAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
 }
 #endif
 
-void BiquadAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
+void BiquadAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
 {
-    //calculateCoefficients(*frequency, *q, *gain, FilterType(filterType->getIndex()));
+	if (mFrequency != frequency->get()
+		|| mQ != q->get()
+		|| mGain != gain->get()
+		|| mFilterType != (FilterType)filterType->getIndex())
+	{
+		mFrequency = frequency->get();
+		mQ = q->get();
+		mGain = gain->get();
+		mFilterType = (FilterType)filterType->getIndex();
+
+		calculateCoefficients(mFrequency, mQ, mGain, mFilterType);
+	}
+
     ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -218,16 +236,27 @@ void BiquadAudioProcessor::getStateInformation (MemoryBlock& destData)
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
+	destData.append((void *)&mFrequency, sizeof(float));
+	destData.append((void *)&mQ, sizeof(float));
+	destData.append((void *)&mGain, sizeof(float));
+	destData.append((void *)&mFilterType, sizeof(FilterType));
 }
 
 void BiquadAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+
+	MemoryBlock srcData(sizeInBytes, true);
+	srcData.copyFrom(data, 0, sizeInBytes);
+	srcData.copyTo((void *)&mFrequency, 0, sizeof(float));
+	srcData.copyTo((void *)&mQ, 1 * sizeof(float), sizeof(float));
+	srcData.copyTo((void *)&mGain, 2 * sizeof(float), sizeof(float));
+	srcData.copyTo((void *)&mFilterType, 3 * sizeof(float), sizeof(FilterType));
 }
 
 void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float gain, FilterType filtertype)
-{
+{	
 	switch (filtertype)
 	{
 	case BiquadAudioProcessor::FirstOrderLPF:
