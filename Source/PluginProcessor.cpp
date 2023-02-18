@@ -24,7 +24,7 @@ BiquadAudioProcessor::BiquadAudioProcessor()
                        )
 #endif
 {
-	addParameter(frequency = new juce::AudioParameterFloat("frequency", "F", juce::NormalisableRange<float>(0.f, 20000.f), 10000.f));
+	addParameter(frequency = new juce::AudioParameterFloat("frequency", "F", juce::NormalisableRange<float>(20.f, 20000.f), 10000.f));
 	addParameter(q = new juce::AudioParameterFloat("q", "Q", juce::NormalisableRange<float>(0.01f, 10.f), 0.5f));
 	addParameter(gain = new juce::AudioParameterFloat("gain", "G", juce::NormalisableRange<float>(-10.f, 10.f), 1.f));
 	addParameter(filterType = new juce::AudioParameterChoice("filterType", "T", StringArray{
@@ -136,11 +136,6 @@ void BiquadAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
 	y1 = (float *)malloc(nsize);
 	y2 = (float *)malloc(nsize);
 
-    for (int i = 0; i < numchannels; ++i)
-    {
-        x1[i] = x2[i] = y1[i] = y2[i] = 0;
-    }
-
 	*frequency = mFrequency;
 	*q = mQ;
 	*gain = mGain;
@@ -200,14 +195,25 @@ void BiquadAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& 
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+#ifdef DEBUG_NOISE
+	for (int channel = 0; channel < totalNumInputChannels; ++channel)
+	{
+		auto* out = buffer.getWritePointer(channel);
+		for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+		{
+			out[sample] = ((rand() % 100) - 50) / 50.f;
+		}
+	}
+#endif
+
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        auto* in = buffer.getReadPointer (channel);
-        auto* out = buffer.getWritePointer (channel);
+		auto* in = buffer.getReadPointer(channel);
+		auto* out = buffer.getWritePointer(channel);
 
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            float x0 = in[sample];
+			float x0 = in[sample];
             float y0 = (x0 * d0) + c0 * (a1 * x1[channel] + a2 * x2[channel] - b1 * y1[channel] - b2 * y2[channel]);
             out[sample] = y0;
 
@@ -256,7 +262,12 @@ void BiquadAudioProcessor::setStateInformation (const void* data, int sizeInByte
 }
 
 void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float gain, FilterType filtertype)
-{	
+{ 
+	for (int i = 0; i < sizeof(x1) / sizeof(float); ++i)
+    {
+        x1[i] = x2[i] = y1[i] = y2[i] = 0;
+    }
+
 	switch (filtertype)
 	{
 	case BiquadAudioProcessor::FirstOrderLPF:
@@ -470,6 +481,7 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 	}
 	case BiquadAudioProcessor::FirstOrderHighShelf:
 	{
+		// Broken
 		float theta = (juce::MathConstants<float>::twoPi * frequency) / samplerate;
 		float mu = gain;
 		float beta = (1.f + mu) / 4.f;
@@ -487,6 +499,7 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 	}
 	case BiquadAudioProcessor::FirstOrderLowShelf:
 	{
+		// Broken
 		float theta = (juce::MathConstants<float>::twoPi * frequency) / samplerate;
 		float mu = gain;
 		float beta = 4.f / (1.f + mu);
@@ -504,6 +517,7 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 	}
 	case BiquadAudioProcessor::SecondOrderParametricNonConstQ:
 	{
+		// Broken
 		float theta = (juce::MathConstants<float>::twoPi * frequency) / samplerate;
 		float mu = gain;
 		float zeta = 4.f / (1.f + mu);
@@ -521,6 +535,7 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 	}
 	case BiquadAudioProcessor::SecondOrderParametricConstQ:
 	{
+		// Broken
 		float kappa = tan((juce::MathConstants<float>::pi * frequency) / samplerate);
 		float mu = gain;
 		jassert(q > 0.f);
@@ -558,6 +573,7 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 	}
 	case BiquadAudioProcessor::FirstOrderAllPole:
 	{
+		// Broken
 		float theta = (juce::MathConstants<float>::twoPi * frequency) / samplerate;
 		float gamma = 2.f - cos(theta);
 		float delta = sqrt(gamma * gamma - 1.f - gamma);
