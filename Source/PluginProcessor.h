@@ -47,7 +47,18 @@ public:
         SecondOrderVAMMBPF,
         FirstOrderIILPF,
         SecondOrderIILPF,
+        FILTERTYPE_MAX
     };
+
+    enum Params
+    {
+        FREQUENCY = 0,
+        Q,
+        GAIN,
+        FILTERTYPE,
+        PARAMS_MAX
+    };
+
     //==============================================================================
     BiquadAudioProcessor();
     ~BiquadAudioProcessor();
@@ -85,6 +96,7 @@ public:
     void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    StringArray getFilterTypeStrings();
 private:
     float samplerate;
     float a0, a1, a2, b0, b1, b2, c0, d0;

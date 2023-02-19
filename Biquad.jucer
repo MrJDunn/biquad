@@ -2,7 +2,12 @@
 
 <JUCERPROJECT id="RPfyUH" name="Biquad" projectType="audioplug" jucerVersion="5.4.3">
   <MAINGROUP id="wRw5Yl" name="Biquad">
+    <GROUP id="{57210F3E-E37B-7048-12C4-A54A5D025957}" name="Components">
+      <FILE id="UqsRug" name="Controls.cpp" compile="1" resource="0" file="Source/Components/Controls.cpp"/>
+      <FILE id="wXiCov" name="Controls.h" compile="0" resource="0" file="Source/Components/Controls.h"/>
+    </GROUP>
     <GROUP id="{28848E76-9C34-5878-B2A0-519EB8A8BCE5}" name="Source">
+      <FILE id="j9HnZ9" name="Style.h" compile="0" resource="0" file="Source/Style.h"/>
       <FILE id="BtNGgp" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="h06ufd" name="PluginProcessor.h" compile="0" resource="0"

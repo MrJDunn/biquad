@@ -13,30 +13,33 @@
 
 //==============================================================================
 BiquadAudioProcessorEditor::BiquadAudioProcessorEditor (BiquadAudioProcessor& p)
-    : GenericAudioProcessorEditor (&p), processor (p)
+    : AudioProcessorEditor (&p), mProcessor (p), mControls(p)
 {
-    // Make sure that before the constructor has finished, you've set the
-    // editor's size to whatever you need it to be.
-    setSize (400, 300);
+    setLookAndFeel(&mStyle);
+
+    setSize(480, 270);
+
+    addAndMakeVisible(mControls);
 }
 
 BiquadAudioProcessorEditor::~BiquadAudioProcessorEditor()
 {
+    setLookAndFeel(nullptr);
 }
 
 //==============================================================================
 void BiquadAudioProcessorEditor::paint (Graphics& g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
-
-    g.setColour (Colours::white);
-    g.setFont (15.0f);
-    g.drawFittedText ("Hello World!", getLocalBounds(), Justification::centred, 1);
+    g.setGradientFill(ColourGradient(
+        Colour::fromRGB(33, 33, 33), float(getWidth() / 2), 0,
+        Colour::fromRGB(198, 113, 0), float(getWidth() / 2), float(getHeight()), false));
+    g.fillAll();
 }
 
 void BiquadAudioProcessorEditor::resized()
 {
-    // This is generally where you'll want to lay out the positions of any
-    // subcomponents in your editor..
+    auto bounds = getLocalBounds();
+
+    auto headerArea = bounds.removeFromTop(58);
+    mControls.setBounds(headerArea);
 }

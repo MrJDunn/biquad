@@ -25,34 +25,9 @@ BiquadAudioProcessor::BiquadAudioProcessor()
 #endif
 {
 	addParameter(frequency = new juce::AudioParameterFloat("frequency", "F", juce::NormalisableRange<float>(20.f, 20000.f), 10000.f));
-	addParameter(q = new juce::AudioParameterFloat("q", "Q", juce::NormalisableRange<float>(0.01f, 10.f), 0.5f));
-	addParameter(gain = new juce::AudioParameterFloat("gain", "G", juce::NormalisableRange<float>(-10.f, 10.f), 1.f));
-	addParameter(filterType = new juce::AudioParameterChoice("filterType", "T", StringArray{
-        "FirstOrderLPF",
-        "FirstOrderHPF",
-        "SecondOrderLPF",
-        "SecodOrderHPF",
-        "SecondOrderBPF",
-        "SecondOrderBSF",
-        "SecondOrderButterworthLPF",
-        "SecondOrderButterworthHPF",
-        "SecondOrderButterworthBPF",
-        "SecondOrderButterworthBSF",
-        "SecondOrderLinkwitzRileyLPF",
-        "SecondOrderLinkwitzRileyHPF",
-        "FirstOrderAPF",
-        "SecondOrderAPF",
-        "FirstOrderHighShelf",
-        "FirstOrderLowShelf",
-        "SecondOrderParametricNonConstQ",
-        "SecondOrderParametricConstQ",
-        "FirstOrderAllPole",
-        "SecondOrderAllPole",
-        "SecondOrderVAMMLPF",
-        "SecondOrderVAMMBPF",
-        "FirstOrderIILPF",
-        "SecondOrderIILPF",
-		}, 0));
+	addParameter(q = new juce::AudioParameterFloat("q", "Q", juce::NormalisableRange<float>(0.01f, 10.f), 0.01f));
+	addParameter(gain = new juce::AudioParameterFloat("gain", "G", juce::NormalisableRange<float>(-10.f, 10.f), 0.1f));
+	addParameter(filterType = new juce::AudioParameterChoice("filterType", "T", getFilterTypeStrings(), 0));
     
 	mFrequency = mQ = mGain = 0.f;
     FilterType mFilterType = FirstOrderLPF;
@@ -259,6 +234,36 @@ void BiquadAudioProcessor::setStateInformation (const void* data, int sizeInByte
 	srcData.copyTo((void *)&mQ, 1 * sizeof(float), sizeof(float));
 	srcData.copyTo((void *)&mGain, 2 * sizeof(float), sizeof(float));
 	srcData.copyTo((void *)&mFilterType, 3 * sizeof(float), sizeof(FilterType));
+}
+
+StringArray BiquadAudioProcessor::getFilterTypeStrings()
+{
+	return StringArray{
+		"1 Ord LP",
+		"1 Ord HP",
+		"2 Ord LP",
+		"2 Ord HP",
+		"2 Ord BP",
+		"2 Ord BS",
+		"2 Ord Bwth LP",
+		"2 Ord Bwth HP",
+		"2 Ord Bwth BP",
+		"2 Ord Bwth BS",
+		"2 Ord LR LP",
+		"2 Ord LR HP",
+		"1 Ord AP",
+		"2 Ord AP",
+		"1 Ord H Shlf",
+		"1 Ord L Shlf",
+		"2 Ord Par Cnst",
+		"2 Ord Par",
+		"1 Ord All Pole",
+		"2 Ord All Pole",
+		"2 Ord VAMMLP",
+		"2 Ord VAMMBP",
+		"1 Ord IILP",
+		"2 Ord IILP",
+	};
 }
 
 void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float gain, FilterType filtertype)

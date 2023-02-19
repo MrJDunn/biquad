@@ -11,12 +11,14 @@
 #pragma once
 
 #include "../JuceLibraryCode/JuceHeader.h"
+#include "Components/Controls.h"
+#include "Style.h"
 #include "PluginProcessor.h"
 
 //==============================================================================
 /**
 */
-class BiquadAudioProcessorEditor  : public GenericAudioProcessorEditor// public AudioProcessorEditor
+class BiquadAudioProcessorEditor  : /*public GenericAudioProcessorEditor*/ public AudioProcessorEditor
 {
 public:
     BiquadAudioProcessorEditor (BiquadAudioProcessor&);
@@ -29,7 +31,11 @@ public:
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
-    BiquadAudioProcessor& processor;
+    BiquadAudioProcessor& mProcessor;
+
+    Controls mControls;
+
+    Style mStyle;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BiquadAudioProcessorEditor)
 };
