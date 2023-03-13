@@ -23,6 +23,8 @@ BiquadAudioProcessor::BiquadAudioProcessor()
                      #endif
                        )
 #endif
+	, forwardFFT(fftOrder)
+	, window(fftSize, juce::dsp::WindowingFunction<float>::hann)
 {
 	addParameter(frequency = new juce::AudioParameterFloat("frequency", "F", juce::NormalisableRange<float>(20.f, 20000.f), 10000.f));
 	addParameter(q = new juce::AudioParameterFloat("q", "Q", juce::NormalisableRange<float>(0.01f, 10.f), 0.01f));
@@ -196,6 +198,23 @@ void BiquadAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& 
             x1[channel] = x0;
             y2[channel] = y1[channel];
             y1[channel] = y0;
+
+			//FFT
+			if (channel == 0) // Sticking to one channel for now
+			{
+				if (fifoIndex == fftSize)
+				{
+					if (!nextFFTBlockReady)
+					{
+						juce::zeromem(fftData, sizeof(fftData));
+						memcpy(fftData, fifo, sizeof(fifo));
+						nextFFTBlockReady = true;
+					}
+					fifoIndex = 0;
+				}
+				fifo[fifoIndex++] = y0;
+			}
+			//FFT
         }
     }
 }

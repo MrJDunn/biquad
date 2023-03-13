@@ -16,7 +16,7 @@
 /**
 */
 
-#define DEBUG_NOISE
+//#define DEBUG_NOISE
 
 class BiquadAudioProcessor  : public AudioProcessor
 {
@@ -97,6 +97,25 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     StringArray getFilterTypeStrings();
+
+    //FFT
+    juce::dsp::FFT forwardFFT;
+    juce::dsp::WindowingFunction<float> window;
+
+    enum
+    {
+        fftOrder = 11,
+        fftSize = 1 << fftOrder,
+        scopeSize = 512
+    };
+
+    float fifo[fftSize];
+    float fftData[2 * fftSize];
+    int fifoIndex = 0;
+    bool nextFFTBlockReady = false;
+    float scopeData[scopeSize];
+    //FFT
+
 private:
     float samplerate;
     float a0, a1, a2, b0, b1, b2, c0, d0;
@@ -107,7 +126,7 @@ private:
 
     float mFrequency, mQ, mGain;
     FilterType mFilterType;
-
+ 
     void calculateCoefficients(float frequency, float q, float gain, FilterType filtertype);
     float linearToDecibels(const float &linearValue);
     float decibelsToLinear(const float &decibelValue);

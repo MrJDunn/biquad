@@ -12,6 +12,7 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 #include "Components/Controls.h"
+#include "Components/Spectrum.h"
 #include "Style.h"
 #include "PluginProcessor.h"
 
@@ -34,6 +35,7 @@ private:
     BiquadAudioProcessor& mProcessor;
 
     Controls mControls;
+    Spectrum mSpectrum;
 
     Style mStyle;
 

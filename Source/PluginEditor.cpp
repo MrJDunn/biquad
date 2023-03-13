@@ -13,13 +13,14 @@
 
 //==============================================================================
 BiquadAudioProcessorEditor::BiquadAudioProcessorEditor (BiquadAudioProcessor& p)
-    : AudioProcessorEditor (&p), mProcessor (p), mControls(p)
+    : AudioProcessorEditor (&p), mProcessor (p), mControls(p), mSpectrum(p)
 {
     setLookAndFeel(&mStyle);
 
     setSize(480, 270);
 
     addAndMakeVisible(mControls);
+    addAndMakeVisible(mSpectrum);
 }
 
 BiquadAudioProcessorEditor::~BiquadAudioProcessorEditor()
@@ -42,4 +43,5 @@ void BiquadAudioProcessorEditor::resized()
 
     auto headerArea = bounds.removeFromTop(58);
     mControls.setBounds(headerArea);
+    mSpectrum.setBounds(bounds);
 }
