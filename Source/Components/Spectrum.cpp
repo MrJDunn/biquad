@@ -24,18 +24,6 @@ Spectrum::~Spectrum()
 
 void Spectrum::paint (Graphics& g)
 {
-	for (int i = 1; i < mProcessor.scopeSize; ++i)
-	{
-		auto width = getLocalBounds().getWidth();
-		auto height = getLocalBounds().getHeight();
-
-		g.drawLine({ (float)juce::jmap(i - 1, 0, mProcessor.scopeSize - 1, 0, width),
-							  juce::jmap(mProcessor.scopeData[i - 1], 0.0f, 1.0f, (float)height, 0.0f),
-					  (float)juce::jmap(i,     0, mProcessor.scopeSize - 1, 0, width),
-							  juce::jmap(mProcessor.scopeData[i],     0.0f, 1.0f, (float)height, 0.0f) });
-	}
-	/*
-	int i = 0;
 	float width = (float)getWidth();
 	float height = (float)getHeight();
 
@@ -49,13 +37,11 @@ void Spectrum::paint (Graphics& g)
 		Colour::fromRGB(33, 33, 33), width / 2.f, -58,
 		Colour::fromRGB(255, 160, 0), width / 2.f, height, false);
 
-	for (auto it : fifo)
+	for (int i = 0; i < mProcessor.scopeSize; ++i)
 	{
 		g.setGradientFill(interpolatedGradient);
-		g.fillRect((float)i, height - it * height, barWidth, height);
-		i += 1;
+		g.fillRect((float)i, height - mProcessor.scopeData[i] * height, barWidth, height);
 	}
-	*/
 }
 
 void Spectrum::resized()

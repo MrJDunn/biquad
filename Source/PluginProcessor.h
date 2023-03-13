@@ -16,7 +16,7 @@
 /**
 */
 
-//#define DEBUG_NOISE
+#define DEBUG_NOISE
 
 class BiquadAudioProcessor  : public AudioProcessor
 {

@@ -33,6 +33,7 @@ BiquadAudioProcessor::BiquadAudioProcessor()
     
 	mFrequency = mQ = mGain = 0.f;
     FilterType mFilterType = FirstOrderLPF;
+	std::fill(std::begin(scopeData), std::end(scopeData), 0.f);
 }
 
 BiquadAudioProcessor::~BiquadAudioProcessor()
