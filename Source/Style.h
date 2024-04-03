@@ -17,12 +17,12 @@ class Style : public LookAndFeel_V4
 public:
 	Style() 
 	{
-		setColour(Slider::ColourIds::textBoxOutlineColourId, colors.invisible);
-		setColour(Slider::ColourIds::textBoxHighlightColourId, colors.invisible);
-		setColour(Slider::ColourIds::textBoxHighlightColourId, colors.invisible);
-		setColour(Label::ColourIds::outlineColourId, colors.invisible);
+		setColour(Slider::ColourIds::textBoxOutlineColourId, colours.invisible);
+		setColour(Slider::ColourIds::textBoxHighlightColourId, colours.invisible);
+		setColour(Slider::ColourIds::textBoxHighlightColourId, colours.invisible);
+		setColour(Label::ColourIds::outlineColourId, colours.invisible);
 
-		setColour(TextEditor::ColourIds::outlineColourId, colors.invisible);
+		setColour(TextEditor::ColourIds::outlineColourId, colours.invisible);
 	};
 
 	~Style() {};
@@ -45,23 +45,23 @@ public:
 		if (ticked)
 		{
 			g.setGradientFill(ColourGradient(
-				colors.tertiraryLight, bounds.getCentreX(), bounds.getCentreY(),
-				colors.secondaryLight, bounds.getWidth() * 2, bounds.getHeight() * 2, true));
+				colours.tertiaryLight, bounds.getCentreX(), bounds.getCentreY(),
+				colours.secondaryLight, bounds.getWidth() * 2, bounds.getHeight() * 2, true));
 
 			auto ellipseSpace = bounds.reduced(2);
 			g.fillEllipse(ellipseSpace);
 
-			g.setColour(colors.primary);
+			g.setColour(colours.primary);
 			g.drawEllipse(bounds, 1.f);
 		}
 		else
 		{
-			g.setColour(colors.secondary);
+			g.setColour(colours.secondary);
 
 			auto ellipseSpace = bounds.reduced(2);
 			g.fillEllipse(ellipseSpace);
 
-			g.setColour(colors.secondaryLight);
+			g.setColour(colours.secondaryLight);
 			g.drawEllipse(bounds, 1.f);
 		}
 	} // drawTickBox
@@ -79,8 +79,8 @@ public:
 		auto arcRadius = radius - lineW * 0.5f;
 
 		g.setGradientFill(ColourGradient(
-			colors.tertiraryLight, bounds.getCentreX(), bounds.getCentreY(),
-			colors.secondaryLight, bounds.getCentreX() + 2 * diameter, bounds.getCentreY() + 2 * diameter, true));
+		    slider.isEnabled() ? colours.tertiaryLight : colours.grey, bounds.getCentreX(), bounds.getCentreY(),
+			colours.secondaryLight, bounds.getCentreX() + 2 * diameter, bounds.getCentreY() + 2 * diameter, true));
 		g.fillEllipse(bounds.reduced(4));
 
 		Path valueArc;
@@ -93,14 +93,14 @@ public:
 			toAngle,
 			true);
 
-		g.setColour(colors.primaryLight);
+		g.setColour(slider.isEnabled() ? colours.primary : colours.secondaryLight);
 		g.strokePath(valueArc, PathStrokeType(lineW, PathStrokeType::curved, PathStrokeType::rounded));
 
 		auto thumbWidth = lineW * 5.0f;
 		Point<float> thumbPoint(bounds.getCentreX() + (arcRadius - 7) * std::cos(toAngle - MathConstants<float>::halfPi),
 			bounds.getCentreY() + (arcRadius - 7) * std::sin(toAngle - MathConstants<float>::halfPi));
 
-		g.setColour(colors.white);
+		g.setColour(slider.isEnabled() ? colours.white : colours.secondary);
 		g.fillEllipse(juce::Rectangle<float>(thumbWidth, thumbWidth).withCentre(thumbPoint));
 
 
@@ -118,11 +118,11 @@ public:
 		g.setGradientFill(ColourGradient(
 			button.getLookAndFeel().findColour(MidiKeyboardComponent::ColourIds::keySeparatorLineColourId),
 			(float)button.getWidth(), (float)button.getHeight(),
-			Colour::fromRGB(17, 17, 17),
+			colours.secondary,
 			(float)button.getWidth(), (float)button.getHeight() / 2.0f, false));
 		g.fillRoundedRectangle(boxBounds.toFloat(), cornerSize);
 
-		g.setColour(Colour::fromRGB(15, 15, 15));
+		g.setColour(colours.secondary);
 		g.drawRoundedRectangle(boxBounds.toFloat().reduced(0.5f, 0.5f), cornerSize, 0.25f);
 	} // drawButtonBackground
 
@@ -193,24 +193,27 @@ public:
 
 	struct StyleColours
 	{
+		static StyleColours instance() { return StyleColours(); };
+
 		// Blues
-		Colour primary = Colour::fromRGB(21, 101, 192);
+		Colour primary		= Colour::fromRGB(21, 101, 192);
 		Colour primaryLight = Colour::fromRGB(94, 146, 243);
-		Colour primaryDark = Colour::fromRGB(0, 60, 143);
+		Colour primaryDark	= Colour::fromRGB(0, 60, 143);
 
 		// Blacks
-		Colour secondary = Colour::fromRGB(33, 33, 33);
+		Colour secondary	  = Colour::fromRGB(33, 33, 33);
 		Colour secondaryLight = Colour::fromRGB(72, 72, 72);
-		Colour secondaryDark = Colour::fromRGB(0, 0, 0);
+		Colour secondaryDark  = Colour::fromRGB(0, 0, 0);
 
 		// Yellows
-		Colour tertirary = Colour::fromRGB(255, 162, 0);
-		Colour tertiraryLight = Colour::fromRGB(255, 210, 73);
-		Colour tertiraryDark = Colour::fromRGB(198, 112, 0);
+		Colour tertiary		 = Colour::fromRGB(255, 162, 0);
+		Colour tertiaryLight = Colour::fromRGB(255, 210, 73);
+		Colour tertiaryDark	 = Colour::fromRGB(198, 112, 0);
 
 		// Utilitity
 		Colour invisible = Colours::transparentBlack;
 		Colour white = Colours::white;
 		Colour black = Colours::black;
-	} colors;
+		Colour grey = Colour::fromRGB(100, 100, 100);
+	} colours;
 };

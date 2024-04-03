@@ -10,6 +10,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Style.h"
 
 //==============================================================================
 BiquadAudioProcessorEditor::BiquadAudioProcessorEditor (BiquadAudioProcessor& p)
@@ -32,8 +33,8 @@ BiquadAudioProcessorEditor::~BiquadAudioProcessorEditor()
 void BiquadAudioProcessorEditor::paint (Graphics& g)
 {
     g.setGradientFill(ColourGradient(
-        Colour::fromRGB(33, 33, 33), float(getWidth() / 2), 0,
-        Colour::fromRGB(198, 113, 0), float(getWidth() / 2), float(getHeight()), false));
+        Style::StyleColours::instance().secondary, float(getWidth() / 2), 0,
+        Style::StyleColours::instance().primary, float(getWidth() / 2), float(getHeight()), false));
     g.fillAll();
 }
 

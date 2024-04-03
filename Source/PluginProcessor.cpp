@@ -14,26 +14,34 @@
 //==============================================================================
 BiquadAudioProcessor::BiquadAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", AudioChannelSet::stereo(), true)
-                     #endif
-                       )
+	: AudioProcessor(BusesProperties()
+#if ! JucePlugin_IsMidiEffect
+#if ! JucePlugin_IsSynth
+		.withInput("Input", AudioChannelSet::stereo(), true)
+#endif
+		.withOutput("Output", AudioChannelSet::stereo(), true)
+#endif
+	)
 #endif
 	, forwardFFT(fftOrder)
 	, window(fftSize, juce::dsp::WindowingFunction<float>::hann)
 {
 	addParameter(frequency = new juce::AudioParameterFloat("frequency", "F", juce::NormalisableRange<float>(20.f, 20000.f), 10000.f));
-	addParameter(q = new juce::AudioParameterFloat("q", "Q", juce::NormalisableRange<float>(0.01f, 10.f), 0.01f));
-	addParameter(gain = new juce::AudioParameterFloat("gain", "G", juce::NormalisableRange<float>(-10.f, 10.f), 0.1f));
+	addParameter(q = new juce::AudioParameterFloat("q", "Q", juce::NormalisableRange<float>(1.0f, 20.f), 1.0f));
+	addParameter(gain = new juce::AudioParameterFloat("gain", "G", juce::NormalisableRange<float>(-5.f, 5.f), 0.0f));
 	addParameter(filterType = new juce::AudioParameterChoice("filterType", "T", getFilterTypeStrings(), 0));
     
-	mFrequency = mQ = mGain = 0.f;
-    FilterType mFilterType = FirstOrderLPF;
+	*frequency = 10000.f;
+	*q = 1.f;
+	*gain = 0.f;
+	*filterType = 0;
+
 	std::fill(std::begin(scopeData), std::end(scopeData), 0.f);
+
+	for (int i = 0; i < 600; ++i)
+	{
+		responseKeyFrequencies[i] = i / 20000.0f;
+	}
 }
 
 BiquadAudioProcessor::~BiquadAudioProcessor()
@@ -113,13 +121,6 @@ void BiquadAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
 	x2 = (float *)malloc(nsize);
 	y1 = (float *)malloc(nsize);
 	y2 = (float *)malloc(nsize);
-
-	*frequency = mFrequency;
-	*q = mQ;
-	*gain = mGain;
-	*filterType = mFilterType;
-
-	calculateCoefficients(mFrequency, mQ, mGain, mFilterType);
 }
 
 void BiquadAudioProcessor::releaseResources()
@@ -153,33 +154,214 @@ bool BiquadAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
   #endif
 }
 #endif
+/*
+void FMOD_MultibandEQ_CalculateResponse(FMOD_DSP_MULTIBAND_EQ_FILTER_TYPE filter, const float coefficients[MAX_COEFS], int sampleRate, int count, const float *frequency, float *magnitude, float *phase)
+{
+    FMOD_DEBUG_ASSERT(coefficients);
+    FMOD_DEBUG_ASSERT(sampleRate >= 8000);
+    FMOD_DEBUG_ASSERT(count > 0);
+    FMOD_DEBUG_ASSERT(frequency);
+    FMOD_DEBUG_ASSERT(magnitude);
+    FMOD_DEBUG_ASSERT(phase);
+
+    float b0 = coefficients[0];
+    float b1 = coefficients[1];
+    float b2 = coefficients[2];
+    float a0 = 1.0f;
+    float a1 = coefficients[3];
+    float a2 = coefficients[4];
+
+    float rolloffMultiply = 1.0f;
+    if (filter == FMOD_DSP_MULTIBAND_EQ_FILTER_LOWPASS_24DB || filter == FMOD_DSP_MULTIBAND_EQ_FILTER_HIGHPASS_24DB)
+    {
+        rolloffMultiply = 2.0f;
+    }
+    else if (filter == FMOD_DSP_MULTIBAND_EQ_FILTER_LOWPASS_48DB || filter == FMOD_DSP_MULTIBAND_EQ_FILTER_HIGHPASS_48DB)
+    {
+        rolloffMultiply = 4.0f;
+    }
+
+    float unwrapRange = 360.0f * rolloffMultiply;
+    if (filter == FMOD_DSP_MULTIBAND_EQ_FILTER_NOTCH)
+    {
+        unwrapRange = 0.0f;
+    }
+
+    float nyquist = sampleRate / 2.0f;
+    for (int i = 0; i < count; i++)
+    {
+        float normFreq = frequency[i] / nyquist;
+        normFreq = FMOD_CLAMP(normFreq, 0.0001f, 0.9999f); // Slightly higher range than algorithm for better visualization
+
+        FMOD_COMPLEX z1 = FMOD_COMPLEX_POLAR(1.0f, -FMOD_PI * normFreq);
+        FMOD_COMPLEX num = b0 + (b1 + b2 * z1) * z1;
+        FMOD_COMPLEX den = a0 + (a1 + a2 * z1) * z1;
+        FMOD_COMPLEX res = num / den;
+
+        magnitude[i] = FMOD_LINEAR_TO_DECIBELS(FMOD_COMPLEX_ABS(res)) * rolloffMultiply;
+        phase[i] = FMOD_RAD_TO_DEG(FMOD_COMPLEX_ARG(res)) * rolloffMultiply;
+    }
+
+    if (unwrapRange)
+    {
+        FMOD_MultibandEQ_UnwrapPhase(count, phase, unwrapRange);
+    }
+}
+*/
+//void BiquadAudioProcessor::calculateResponse(int sampleRate, int count, const float* frequencies, float* magnitude, float* phase)
+//{
+//	//float nyquist = sampleRate / 2.0f;
+//	for (int i = 0; i < count; i++)
+//	{
+//		float omega = (MathConstants<float>::twoPi * frequencies[i]) / sampleRate;
+//		//float normFreq = frequencies[i] / nyquist;
+//		omega = omega < 0.0001f ? 0.0001f : omega > 0.9999f ? 0.9999f : omega;
+//
+//		std::complex<float> z1 = exp(std::complex<float>(1.0f, omega));
+//		std::complex<float> z2 = exp(std::complex<float>(1.0f, 2.f * omega));
+//		std::complex<float> num = b0 + (b1 * z1) + (b2 * z2);
+//		std::complex<float> den = a0 + (a1 * z1) * (a2 * z1);
+//		std::complex<float> res = num / den;
+//
+//		magnitude[i] = linearToDecibels(abs(res.real()));
+//		phase[i] = (res.real() * 180 / MathConstants<float>::pi);
+//	}
+//	return;
+//}
+
+void BiquadAudioProcessor::calculateResponse(int sampleRate, int count, const float* frequencies, float* magnitude, float* phase)
+{
+	std::complex<float> z1(0.0f);
+	std::complex<float> z2(0.0f);
+	float nyquist = sampleRate / 2.0f;
+	for (int i = 0; i < count; i++)
+	{
+		//float omega = (MathConstants<float>::twoPi * frequencies[i]) / sampleRate;
+		float normFreq = frequencies[i] / nyquist;
+		float omega = normFreq < 0.0001f ? 0.0001f : normFreq  > 0.9999f ? 0.9999f : normFreq ;
+
+		std::complex<float> num = b0 + (b1 * z1) + (b2 * z2);
+		std::complex<float> den = a0 + (a1 * z1) * (a2 * z1);
+		std::complex<float> res = num / den;
+		z2 = z1;// exp(std::complex<float>(1.0f, 2.f * omega));
+		z1 = omega;//  exp(std::complex<float>(1.0f, omega));
+
+		magnitude[i] = linearToDecibels(abs(res.imag()));
+		phase[i] = (res.real() * 180 / MathConstants<float>::pi);
+	}
+	return;
+}
+
+std::complex<float> BiquadAudioProcessor::evalCoefs_biquad3(std::vector<float> coefs, float freq) {
+	float len = coefs.size();
+	std::complex<float> res;
+	for (int idx = 0; idx < len; idx++)
+	{
+		res += coefs[idx] * exp(std::complex<float>(0, -idx * freq * 2 * MathConstants<float>::pi));
+	}
+	return res;
+}
+
+void BiquadAudioProcessor::calcDataOptions() {
+	bool maxSet = false;
+	float maxMag = 0.0f;
+	float freq = 0.0f;;
+	float mag[600];
+	float phase[600];
+	int maxPoint = 600;
+	for (int idx = 0; idx <= maxPoint; idx++) {
+		// step through from 0-0.5 normalized frequency
+		freq = idx / maxPoint * 0.5;
+
+		auto resZeros = evalCoefs_biquad3(std::vector<float>{a0, a1, a2}, freq);
+		std::complex<float> res;
+		if (true/* (pretty sure is always true) poles.length > 0*/) {
+			auto resPoles = evalCoefs_biquad3(std::vector<float>{b0,b1,b2}, freq);
+			auto res = (resZeros / resPoles);
+		}
+		else
+			res = resZeros;
+
+		// magnitude (dB)
+		auto tempMag = abs(res);
+		if (tempMag == 0)
+			tempMag = -300;
+		else
+			tempMag = 20 * log10(tempMag);
+
+		if ((maxSet && (tempMag > maxMag)) || !maxSet) {
+			maxMag = tempMag;
+			maxSet = true;
+		}
+
+		// magnitude
+		mag[idx] = (freq * samplerate, tempMag);	// dB
+
+		// phase
+		phase[idx] = (freq * samplerate, atan2(res.imag(), res.real()));
+	}
+
+	int i = 0;
+	int broken = 2;
+	// phase has too much error for responses near zero, fix them up
+	//for (auto idx = 1; idx <= (maxPoint - 1); idx++) {
+	//	if (mag[idx][1] <= -300) {
+	//		auto p1 = (phase[idx - 1][1] + phase[idx + 1][1]) * 0.5;
+	//		phase[idx][1] = p1;
+	//	}
+	//}
+
+	// dB scaling
+		// calc nearest 10 dB level above
+	//	dBMax = Math.round(maxMag / 10 + 0.4999) * 10;
+	//auto dBMin = dBMax - dBRange;
+	//auto dBTicks = [dBMin, dBMin + dBRange * .25, dBMin + dBRange * .5, dBMin + dBRange * .75, dBMax];
+
+	//	data = [
+	//	{ data:mag }];
+	//	options = {
+	//		yaxis: { max: dBMax, min : dBMin, ticks : dBTicks, tickDecimals : 1 },
+	//		xaxis : { noTicks: 5 },
+	//	};
+}
 
 void BiquadAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
 {
-	if (mFrequency != frequency->get()
-		|| mQ != q->get()
-		|| mGain != gain->get()
-		|| mFilterType != (FilterType)filterType->getIndex())
+	if (mFilter.fq != frequency->get()
+		|| mFilter.qf != q->get()
+		|| mFilter.gn != gain->get()
+		|| mFilter.type != (FilterType)filterType->getIndex())
 	{
-		mFrequency = frequency->get();
-		mQ = q->get();
-		mGain = gain->get();
-		mFilterType = (FilterType)filterType->getIndex();
-
-		calculateCoefficients(mFrequency, mQ, mGain, mFilterType);
+		mFilter = Filter::create(frequency->get(),q->get(),gain->get(), (FilterType)filterType->getIndex());
+		calculateCoefficients(mFilter);
+		calculateResponse(samplerate, 600, responseKeyFrequencies, responseMagnitude, responsePhase);
+		//calcDataOptions();
 	}
 
     ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+#ifdef DEBUG_UNIT_STEP
+	for (int channel = 0; channel < totalNumInputChannels; ++channel)
+	{
+		auto* out = buffer.getWritePointer(channel);
+		for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+		{
+			out[sample] = 0.0f;
+			if (sample % 2 == 0)
+				out[sample] = 1.0f;
+		}
+	}
+
+#endif
 #ifdef DEBUG_NOISE
 	for (int channel = 0; channel < totalNumInputChannels; ++channel)
 	{
 		auto* out = buffer.getWritePointer(channel);
 		for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
 		{
-			out[sample] = ((rand() % 100) - 50) / 50.f;
+			out[sample] = (((rand() % 100) - 50) / 50.f) / 10.0f;
 		}
 	}
 #endif
@@ -192,7 +374,8 @@ void BiquadAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& 
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
 			float x0 = in[sample];
-            float y0 = (x0 * d0) + c0 * (a1 * x1[channel] + a2 * x2[channel] - b1 * y1[channel] - b2 * y2[channel]);
+            float y0 = (a0 * x0) + c0 * (a1 * x1[channel] + a2 * x2[channel] - b1 * y1[channel] - b2 * y2[channel]);
+
             out[sample] = y0;
 
             x2[channel] = x1[channel];
@@ -233,32 +416,58 @@ AudioProcessorEditor* BiquadAudioProcessor::createEditor()
 
 //==============================================================================
 void BiquadAudioProcessor::getStateInformation (MemoryBlock& destData)
-{
+{ 
+	float fq = *frequency;
+	float qf = *q;
+	float gn = *gain;
+    int ft = *filterType;
+
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
-	destData.append((void *)&mFrequency, sizeof(float));
-	destData.append((void *)&mQ, sizeof(float));
-	destData.append((void *)&mGain, sizeof(float));
-	destData.append((void *)&mFilterType, sizeof(FilterType));
+	destData.append((void *)&fq, sizeof(float));
+	destData.append((void *)&qf, sizeof(float));
+	destData.append((void *)&gn, sizeof(float));
+	destData.append((void *)&ft, sizeof(int));
 }
 
 void BiquadAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
+	float fq;
+	float qf;
+	float gn;
+    FilterType ft;
+
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
 
-	MemoryBlock srcData(sizeInBytes, true);
-	srcData.copyFrom(data, 0, sizeInBytes);
-	srcData.copyTo((void *)&mFrequency, 0, sizeof(float));
-	srcData.copyTo((void *)&mQ, 1 * sizeof(float), sizeof(float));
-	srcData.copyTo((void *)&mGain, 2 * sizeof(float), sizeof(float));
-	srcData.copyTo((void *)&mFilterType, 3 * sizeof(float), sizeof(FilterType));
+	if (data)
+	{
+		MemoryBlock srcData(sizeInBytes, true);
+		srcData.copyFrom(data, 0, sizeInBytes);
+		srcData.copyTo((void*)&fq, 0, sizeof(float));
+		srcData.copyTo((void*)&qf, 1 * sizeof(float), sizeof(float));
+		srcData.copyTo((void*)&gn, 2 * sizeof(float), sizeof(float));
+		srcData.copyTo((void*)&ft, 3 * sizeof(float), sizeof(int));
+
+		*frequency = fq;
+		*q = qf;
+		*gain = gn;
+		*filterType = ft;
+	}
 }
 
 StringArray BiquadAudioProcessor::getFilterTypeStrings()
 {
 	return StringArray{
+		"Low Pass",
+		"High Pass",
+		"Band Pass",
+		"High Shelf",
+		"Low Shelf",
+		"Parametric"
+	};
+	/*return StringArray{
 		"1 Ord LP",
 		"1 Ord HP",
 		"2 Ord LP",
@@ -283,7 +492,12 @@ StringArray BiquadAudioProcessor::getFilterTypeStrings()
 		"2 Ord VAMMBP",
 		"1 Ord IILP",
 		"2 Ord IILP",
-	};
+	};*/
+}
+
+void BiquadAudioProcessor::calculateCoefficients(const Filter& filter)
+{
+	calculateCoefficients(filter.fq, filter.qf, filter.gn, filter.type);
 }
 
 void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float gain, FilterType filtertype)
@@ -295,40 +509,12 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 
 	switch (filtertype)
 	{
-	case BiquadAudioProcessor::FirstOrderLPF:
-	{
-		float theta = juce::MathConstants<float>::twoPi * frequency / samplerate;
-		float gamma = cos(theta) / (1.f + sin(theta));
-		a0 = (1.f - gamma) / 2.f;
-		a1 = a0;
-		a2 = 0.f;
-		b1 = -gamma;
-		b2 = 0.f;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::FirstOrderHPF:
-	{
-		float theta = juce::MathConstants<float>::twoPi * frequency / samplerate;
-		float gamma = cos(theta) / (1.f + sin(theta));
-		a0 = (1.f + gamma) / 2.f;
-		a1 = -a0;
-		a2 = 0.f;
-		b1 = -gamma;
-		b2 = 0.f;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
 	case BiquadAudioProcessor::SecondOrderLPF:
 	{
 		float theta = juce::MathConstants<float>::twoPi * frequency / samplerate;
 		jassert(q > 0.0f);
 		float d = 1.f / q;
-		float beta = 0.5f * (1.f - (d / 2.f) * sin(theta) / (1.f + (d / 2.f) * sin(theta)));
+		float beta = 0.5f * ((1.f - (d / 2.f) * sin(theta)) / (1.f + (d / 2.f) * sin(theta)));
 		float gamma = (0.5f + beta) * cos(theta);
 		a0 = (0.5f + beta - gamma) / 2.f;
 		a1 = 0.5f + beta - gamma;
@@ -345,11 +531,11 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 		float theta = juce::MathConstants<float>::twoPi * frequency / samplerate;
 		jassert(q > 0.0f);
 		float d = 1.f / q;
-		float beta = 0.5f * (1.f - (d / 2.f) * sin(theta) / (1.f + (d / 2.f) * sin(theta)));
+		float beta = 0.5f * ((1.f - (d / 2.f) * sin(theta)) / (1.f + (d / 2.f) * sin(theta)));
 		float gamma = (0.5f + beta) * cos(theta);
-		a0 = (0.5f + beta - gamma) / 2.f;
-		a1 = -(0.5f + beta - gamma);
-		a2 = a2;
+		a0 = (0.5f + beta + gamma) / 2.f;
+		a1 = -(0.5f + beta + gamma);
+		a2 = a0;
 		b1 = -2.f * gamma;
 		b2 = 2.f * beta;
 		c0 = 1.f;
@@ -371,144 +557,11 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 
 		break;
 	}
-	case BiquadAudioProcessor::SecondOrderBSF:
-	{
-		float kappa = tan((juce::MathConstants<float>::pi * frequency) / samplerate);
-		float delta = (kappa * kappa) * q + kappa + q;
-		a0 = (q * (kappa * kappa + 1.f)) / delta;
-		a1 = (2.f * q * (kappa * kappa - 1.f)) / delta;
-		a2 = (q * (kappa * kappa + 1.f)) / delta;
-		b1 = a1;
-		b2 = ((kappa * kappa) * q - kappa + q) / delta;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderButterworthLPF:
-	{
-		float sigma = 1.f / tan((juce::MathConstants<float>::pi * frequency) / samplerate);
-		a0 = 1.f / (1.f + juce::MathConstants<float>::sqrt2 * sigma + sigma * sigma);
-		a1 = 2.f * a0;
-		a2 = a0;
-		b1 = 2.f * a0 * (1.f - sigma * sigma);
-		b2 = a0 * (1.f - juce::MathConstants<float>::sqrt2 * sigma + sigma * sigma);
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderButterworthHPF:
-	{
-		float sigma = tan((juce::MathConstants<float>::pi * frequency) / samplerate);
-		a0 = 1.f / (1.f + juce::MathConstants<float>::sqrt2 * sigma + sigma * sigma);
-		a1 = -2.f * a0;
-		a2 = a0;
-		b1 = 2.f * a0 * (sigma * sigma - 1.f);
-		b2 = a0 * (1.f - juce::MathConstants<float>::sqrt2 * sigma + sigma * sigma);
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderButterworthBPF:
-	{
-		jassert(q > 0.0f);
-		float bandwidth = frequency / q;
-		float sigma = 1.f / tan((juce::MathConstants<float>::pi * frequency * bandwidth) / samplerate);
-		float delta = 2.f * cos((2.f * juce::MathConstants<float>::pi * frequency) / samplerate);
-		a0 = 1.f / (1.f + sigma);
-		a1 = 0.f;
-		a2 = -a0;
-		b1 = -a0 * (sigma * delta);
-		b2 = a0 * (sigma - 1.f);
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderButterworthBSF:
-	{
-		jassert(q > 0.0f);
-		float bandwidth = frequency / q;
-		float sigma = tan((juce::MathConstants<float>::pi * frequency * bandwidth) / samplerate);
-		float delta = 2.f * cos((2.f * juce::MathConstants<float>::pi * frequency) / samplerate);
-		a0 = 1.f / (1.f + sigma);
-		a1 = -a0 * delta;
-		a2 = a0;
-		b1 = a1;
-		b2 = a0 * (1.f - sigma);
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderLinkwitzRileyLPF:
-	{
-		float omega = juce::MathConstants<float>::pi * frequency;
-		float theta = omega / samplerate;
-		float kappa = omega / tan(theta);
-		float delta = kappa * kappa + omega * omega + 2.f * kappa * omega;
-		a0 = (omega * omega) / delta;
-		a1 = 2.f * a0;
-		a2 = a0;
-		b1 = ((-2.f * kappa * kappa) + (2.f * omega * omega)) / delta;
-		b2 = ((-2.f * kappa * omega) + (kappa * kappa) + (omega * omega)) / delta;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderLinkwitzRileyHPF:
-	{
-		float omega = juce::MathConstants<float>::pi * frequency;
-		float theta = omega / samplerate;
-		float kappa = omega / tan(theta);
-		float delta = kappa * kappa + omega * omega + 2.f * kappa * omega;
-		a0 = (kappa * kappa) / delta;
-		a1 = (-2.f * kappa * kappa) / delta;
-		a2 = (kappa * kappa) / delta;
-		b1 = ((-2.f * kappa * kappa) + (2.f * omega * omega)) / delta;
-		b2 = ((-2.f * kappa * omega) + (kappa * kappa) + (omega * omega)) / delta;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::FirstOrderAPF:
-	{
-		float alpha = (tan((juce::MathConstants<float>::pi * frequency) / samplerate) -1.f ) / (tan((juce::MathConstants<float>::pi * frequency) / samplerate) + 1.f);
-		a0 = alpha;
-		a1 = 1.f;
-		a2 = 0.f;
-		b1 = alpha;
-		b2 = 0.f;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderAPF:
-	{
-		jassert(q > 0.0f);
-		float bandwidth = frequency / q;
-		float alpha = (tan((juce::MathConstants<float>::pi * bandwidth) / samplerate) -1.f ) / (tan((juce::MathConstants<float>::pi * bandwidth) / samplerate) + 1.f);
-		float beta = -cos((juce::MathConstants<float>::twoPi * frequency) / samplerate);
-		a0 = -alpha;
-		a1 = beta * (1.f - alpha);
-		a2 = 1.f;
-		b1 = a1;
-		b2 = -alpha;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
 	case BiquadAudioProcessor::FirstOrderHighShelf:
 	{
 		// Broken
 		float theta = (juce::MathConstants<float>::twoPi * frequency) / samplerate;
-		float mu = gain;
+		float mu = powf(10.f, gain / 20.f);
 		float beta = (1.f + mu) / 4.f;
 		float delta = beta * tan(theta / 2.f);
 		float gamma = (1.f - delta) / (1.f + delta);
@@ -524,9 +577,8 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 	}
 	case BiquadAudioProcessor::FirstOrderLowShelf:
 	{
-		// Broken
-		float theta = (juce::MathConstants<float>::twoPi * frequency) / samplerate;
-		float mu = gain;
+		float theta = juce::MathConstants<float>::twoPi * (frequency / samplerate);
+		float mu = powf(10.f, gain / 20.f);
 		float beta = 4.f / (1.f + mu);
 		float delta = beta * tan(theta / 2.f);
 		float gamma = (1.f - delta) / (1.f + delta);
@@ -544,7 +596,7 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 	{
 		// Broken
 		float theta = (juce::MathConstants<float>::twoPi * frequency) / samplerate;
-		float mu = gain;
+		float mu = powf(10.f, gain / 20.f);
 		float zeta = 4.f / (1.f + mu);
 		float beta = 0.5f * ((1.f - zeta * tan(theta / (2.f * q))) / (1.f + zeta * tan(theta / (2.f * q))));
 		float gamma = (0.5f + beta) * cos(theta);
@@ -555,120 +607,6 @@ void BiquadAudioProcessor::calculateCoefficients(float frequency, float q, float
 		b2 = 2.f * beta;
 		c0 = mu - 1.f;
 		d0 = 1.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderParametricConstQ:
-	{
-		// Broken
-		float kappa = tan((juce::MathConstants<float>::pi * frequency) / samplerate);
-		float mu = gain;
-		jassert(q > 0.f);
-		float zeta = 1.f + 1.f / q * kappa + kappa * kappa;
-		float beta = 2.f * (kappa * kappa - 1.f);
-		float delta = 1.f - 1.f / q * kappa + kappa * kappa;
-		if (gain > 0.f)
-		{
-			float alpha = 1.f + mu / q * kappa + kappa * kappa;
-			float gamma = 1.f - mu / q * kappa + kappa * kappa;
-
-			a0 = alpha / zeta;
-			a1 = beta / zeta;
-			a2 = gamma / zeta;
-			b1 = a1;
-			b2 = delta / zeta;
-			c0 = 1.f;
-			d0 = 0.f;
-		}
-		else
-		{
-			float alpha = 1.f + 1.f / (mu * q) * kappa + kappa * kappa;
-			float gamma = 1.f - 1.f / (mu * q) * kappa + kappa * kappa;
-
-			a0 = zeta / alpha;
-			a1 = beta / alpha;
-			a2 = delta / alpha;
-			b1 = a1;
-			b2 = gamma / alpha;
-			c0 = 1.f;
-			d0 = 0.f;
-		}
-
-		break;
-	}
-	case BiquadAudioProcessor::FirstOrderAllPole:
-	{
-		// Broken
-		float theta = (juce::MathConstants<float>::twoPi * frequency) / samplerate;
-		float gamma = 2.f - cos(theta);
-		float delta = sqrt(gamma * gamma - 1.f - gamma);
-		a0 = 1.f + delta;
-		a1 = 0.f;
-		a2 = 0.f;
-		b1 = delta;
-		b2 = 0.f;
-		c0 = 0.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderAllPole:
-	{
-		a0 = 0.f;
-		a1 = 0.f;
-		a2 = 0.f;
-		b1 = 0.f;
-		b2 = 0.f;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderVAMMLPF:
-	{
-		a0 = 0.f;
-		a1 = 0.f;
-		a2 = 0.f;
-		b1 = 0.f;
-		b2 = 0.f;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderVAMMBPF:
-	{
-		a0 = 0.f;
-		a1 = 0.f;
-		a2 = 0.f;
-		b1 = 0.f;
-		b2 = 0.f;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::FirstOrderIILPF:
-	{
-		a0 = 0.f;
-		a1 = 0.f;
-		a2 = 0.f;
-		b1 = 0.f;
-		b2 = 0.f;
-		c0 = 1.f;
-		d0 = 0.f;
-
-		break;
-	}
-	case BiquadAudioProcessor::SecondOrderIILPF:
-	{
-		a0 = 0.f;
-		a1 = 0.f;
-		a2 = 0.f;
-		b1 = 0.f;
-		b2 = 0.f;
-		c0 = 1.f;
-		d0 = 0.f;
 
 		break;
 	}
